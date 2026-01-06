@@ -69,22 +69,75 @@
 
 # src/agent.py
 
+# import os
+# from openai import OpenAI
+
+# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# SYSTEM_PROMPT = """
+# You are an AI technical interviewer.
+# You ask one question at a time.
+# You adapt questions based on candidate answers.
+# Keep questions concise and professional.
+# """
+
+# def evaluate_and_next(last_question: str, answer_text: str) -> str:
+#     """
+#     Takes the last question and candidate answer
+#     Returns the next interview question
+#     """
+
+#     response = client.chat.completions.create(
+#         model="gpt-4o-mini",
+#         messages=[
+#             {"role": "system", "content": SYSTEM_PROMPT},
+#             {
+#                 "role": "user",
+#                 "content": f"""
+# Last question:
+# {last_question}
+
+# Candidate answer:
+# {answer_text}
+
+# Ask the next interview question.
+# """
+#             }
+#         ],
+#         temperature=0.7
+#     )
+
+#     return response.choices[0].message.content.strip()
+
+
+
+# src/agent.py
+
 import os
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not OPENAI_API_KEY:
+    raise RuntimeError("OPENAI_API_KEY environment variable not set")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 SYSTEM_PROMPT = """
 You are an AI technical interviewer.
-You ask one question at a time.
-You adapt questions based on candidate answers.
-Keep questions concise and professional.
+
+Rules:
+- Ask ONLY one interview question at a time
+- Do NOT answer questions yourself
+- Adapt the next question based on the candidate's answer
+- Keep questions concise, professional, and relevant
+- Do NOT include explanations or feedback unless explicitly asked
 """
 
 def evaluate_and_next(last_question: str, answer_text: str) -> str:
     """
     Takes the last question and candidate answer
-    Returns the next interview question
+    Returns the next interview question only
     """
 
     response = client.chat.completions.create(
@@ -94,7 +147,7 @@ def evaluate_and_next(last_question: str, answer_text: str) -> str:
             {
                 "role": "user",
                 "content": f"""
-Last question:
+Last interview question:
 {last_question}
 
 Candidate answer:
@@ -104,7 +157,8 @@ Ask the next interview question.
 """
             }
         ],
-        temperature=0.7
+        temperature=0.6,
+        max_tokens=120
     )
 
     return response.choices[0].message.content.strip()
