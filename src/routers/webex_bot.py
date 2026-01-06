@@ -3,6 +3,8 @@
 import os
 import requests
 from fastapi import APIRouter, Request
+from src.agent import evaluate_and_next
+
 
 # In-memory interview memory (POC only)
 ROOM_STATE = {}  # room_id -> last_question
@@ -72,11 +74,26 @@ async def webhook_handler(request: Request):
         send_message(room_id, FIRST_QUESTION)
         return {"status": "interview_started"}
 
+    # # STEP 2: Interview already in progress
+    # last_question = ROOM_STATE[room_id]
+
+    # # For now, always ask second question (POC logic)
+    # ROOM_STATE[room_id] = SECOND_QUESTION
+    # send_message(room_id, SECOND_QUESTION)
+
+    # return {"status": "next_question_sent"}
+
     # STEP 2: Interview already in progress
     last_question = ROOM_STATE[room_id]
 
-    # For now, always ask second question (POC logic)
-    ROOM_STATE[room_id] = SECOND_QUESTION
-    send_message(room_id, SECOND_QUESTION)
+    # Ask AI for next question
+    next_question = evaluate_and_next(
+        last_question=last_question,
+        answer_text=text
+    )
+
+    # Save and send
+    ROOM_STATE[room_id] = next_question
+    send_message(room_id, next_question)
 
     return {"status": "next_question_sent"}
