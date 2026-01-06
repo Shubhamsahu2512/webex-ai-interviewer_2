@@ -7,6 +7,12 @@ from fastapi import APIRouter, Request
 # Simple in-memory interview state (POC only)
 interview_state = {}
 
+# Interview memory (temporary, in-memory)
+ROOM_STATE = {}  # room_id -> last_question
+
+FIRST_QUESTION = "👋 Hi! Welcome to the AI Interview.\n\nFirst question:\nTell me about yourself."
+
+
 
 router = APIRouter()
 
@@ -52,6 +58,7 @@ async def webhook_handler(request: Request):
     # Get full message content
     msg = get_message(message_id)
     text = msg.get("text")
+    person_email = msg.get("personEmail")
     room_id = msg.get("roomId")
 
     # If user wants to start interview
@@ -63,20 +70,46 @@ async def webhook_handler(request: Request):
         return {"status": "interview_started"}
 
 # If interview already started
-    if room_id in interview_state:
-        last_question = interview_state[room_id]["question"]
+    # if room_id in interview_state:
+    #     last_question = interview_state[room_id]["question"]
 
-        reply = (
-            f"Thanks for your answer.\n\n"
-            f"Your answer was recorded.\n\n"
-            f"Next question will come soon."
-        )
+    #     reply = (
+    #         f"Thanks for your answer.\n\n"
+    #         f"Your answer was recorded.\n\n"
+    #         f"Next question will come soon."
+    #     )
 
-        send_message(room_id, reply)
-        return {"status": "answer_received"}
+    #     send_message(room_id, reply)
+    #     return {"status": "answer_received"}
 
-    # Default fallback
-    send_message(room_id, f"You said: {text}")
+    # # Default fallback
+    # send_message(room_id, f"You said: {text}")
 
 
-    return {"status": "ok"}
+    # return {"status": "ok"}
+
+    # STEP 1: Start interview automatically
+    if room_id not in interview_state:
+        interview_state[room_id] = {
+            "question": FIRST_QUESTION
+        }
+        send_message(room_id, FIRST_QUESTION)
+        return {"status": "interview_started"}
+
+    # STEP 2: Interview already in progress
+    last_question = interview_state[room_id]["question"]
+
+    # Simple evaluation placeholder (we'll improve later)
+    next_question = (
+        "Thank you for your answer.\n\n"
+        "Next question:\n"
+        "What are your key technical skills?"
+    )
+
+    send_message(room_id, next_question)
+
+    # Update last question
+    interview_state[room_id]["question"] = next_question
+
+    return {"status": "next_question_sent"}
+
