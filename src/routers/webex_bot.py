@@ -1,18 +1,23 @@
-# src/routers/webex_bot.py
+# # src/routers/webex_bot.py
 
 import os
 import requests
 from fastapi import APIRouter, Request
 
-# Simple in-memory interview state (POC only)
-interview_state = {}
-
-# Interview memory (temporary, in-memory)
+# In-memory interview memory (POC only)
 ROOM_STATE = {}  # room_id -> last_question
 
-FIRST_QUESTION = "👋 Hi! Welcome to the AI Interview.\n\nFirst question:\nTell me about yourself."
+FIRST_QUESTION = (
+    "👋 Hi! Welcome to the AI Interview.\n\n"
+    "First question:\n"
+    "Tell me about yourself."
+)
 
-
+SECOND_QUESTION = (
+    "Thank you for your answer! 👍\n\n"
+    "Next question:\n"
+    "What are your key technical skills?"
+)
 
 router = APIRouter()
 
@@ -36,80 +41,42 @@ def get_message(message_id: str):
 def send_message(room_id: str, text: str):
     """Send message back to Webex user."""
     url = f"{API_BASE}/messages"
-    payload = {"roomId": room_id, "text": text}
+    payload = {
+        "roomId": room_id,
+        "text": text
+    }
     resp = requests.post(url, json=payload, headers=headers, timeout=10)
     resp.raise_for_status()
     return resp.json()
-
 
 @router.post("/webhook")
 async def webhook_handler(request: Request):
     """Webex will POST here whenever the user sends a message."""
     data = await request.json()
 
-    # Extract message id
     message_id = data.get("data", {}).get("id")
     sender = data.get("data", {}).get("personEmail")
 
     # Ignore bot's own messages
     if sender == WEBEX_BOT_EMAIL:
-        return {"status": "ignored - bot message"}
+        return {"status": "ignored_bot_message"}
 
-    # Get full message content
+    # Fetch full message
     msg = get_message(message_id)
-    text = msg.get("text")
-    person_email = msg.get("personEmail")
+    text = msg.get("text", "").strip()
     room_id = msg.get("roomId")
 
-    # If user wants to start interview
-    if text.lower().strip() == "start interview":
-        interview_state[room_id] = {
-            "question": "Tell me about yourself."
-        }
-        send_message(room_id, "Interview started.\n\nQuestion 1: Tell me about yourself.")
-        return {"status": "interview_started"}
-
-# If interview already started
-    # if room_id in interview_state:
-    #     last_question = interview_state[room_id]["question"]
-
-    #     reply = (
-    #         f"Thanks for your answer.\n\n"
-    #         f"Your answer was recorded.\n\n"
-    #         f"Next question will come soon."
-    #     )
-
-    #     send_message(room_id, reply)
-    #     return {"status": "answer_received"}
-
-    # # Default fallback
-    # send_message(room_id, f"You said: {text}")
-
-
-    # return {"status": "ok"}
-
-    # STEP 1: Start interview automatically
-    if room_id not in interview_state:
-        interview_state[room_id] = {
-            "question": FIRST_QUESTION
-        }
+    # STEP 1: Start interview (first message in room)
+    if room_id not in ROOM_STATE:
+        ROOM_STATE[room_id] = FIRST_QUESTION
         send_message(room_id, FIRST_QUESTION)
         return {"status": "interview_started"}
 
     # STEP 2: Interview already in progress
-    last_question = interview_state[room_id]["question"]
+    last_question = ROOM_STATE[room_id]
 
-    # Simple evaluation placeholder (we'll improve later)
-    next_question = (
-        "Thank you for your answer.\n\n"
-        "Next question:\n"
-        "What are your key technical skills?"
-    )
-
-    send_message(room_id, next_question)
-
-    # Update last question
-    interview_state[room_id]["question"] = next_question
+    # For now, always ask second question (POC logic)
+    ROOM_STATE[room_id] = SECOND_QUESTION
+    send_message(room_id, SECOND_QUESTION)
 
     return {"status": "next_question_sent"}
-
