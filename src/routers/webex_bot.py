@@ -106,9 +106,8 @@
 import os
 import requests
 from fastapi import APIRouter, Request
-from utils.mailer import send_feedback_email
-from agents import generate_feedback
-
+from src.utils.mailer import send_feedback_email
+from src.agents import generate_feedback
 router = APIRouter()
 
 # -------------------------
