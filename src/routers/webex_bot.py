@@ -101,9 +101,13 @@
 
 # src/routers/webex_bot.py
 
+# src/routers/webex_bot.py
+
 import os
 import requests
 from fastapi import APIRouter, Request
+from src.utils.mailer import send_feedback_email
+from src.agents import generate_feedback
 
 router = APIRouter()
 
@@ -220,7 +224,7 @@ async def webhook_handler(request: Request):
         return {"status": "tech_started"}
 
     # -------------------------
-    # TECH → HR
+    # TECH → HR (POC: single tech question)
     # -------------------------
     if state["stage"] == STAGE_TECH:
         state["stage"] = STAGE_HR
@@ -234,22 +238,51 @@ async def webhook_handler(request: Request):
     # HR QUESTIONS
     # -------------------------
     if state["stage"] == STAGE_HR:
-        idx = state["hr_index"]
-        state["profile"][HR_QUESTIONS[idx]] = text
-        idx += 1
-        state["hr_index"] = idx
 
+        idx = state["hr_index"]
+
+        # Safety check
         if idx < len(HR_QUESTIONS):
-            next_question = HR_QUESTIONS[idx]
-            state["last_question"] = next_question
-            send_message(room_id, next_question)
-            return {"status": "hr_next"}
-        else:
-            state["stage"] = STAGE_COMPLETED
-            send_message(
-                room_id,
-                "✅ Thank you for your time.\n\nThe interview is now complete."
-            )
-            return {"status": "interview_completed"}
+            state["profile"][HR_QUESTIONS[idx]] = text
+            state["hr_index"] += 1
+
+        if state["hr_index"] < len(HR_QUESTIONS):
+            next_q = HR_QUESTIONS[state["hr_index"]]
+            state["last_question"] = next_q
+            send_message(room_id, next_q)
+            return {"status": "hr_continue"}
+
+        # -------------------------
+        # INTERVIEW COMPLETE
+        # -------------------------
+        feedback = generate_feedback(state["answers"])
+
+        email_body = f"""
+AI INTERVIEW FEEDBACK
+
+Candidate Responses:
+--------------------
+{feedback}
+
+HR DETAILS:
+-----------
+Experience: {state['profile'].get(HR_QUESTIONS[0])}
+Current CTC: {state['profile'].get(HR_QUESTIONS[1])}
+Expected CTC: {state['profile'].get(HR_QUESTIONS[2])}
+Notice Period: {state['profile'].get(HR_QUESTIONS[3])}
+""".strip()
+
+        send_feedback_email(
+            subject="AI Interview Feedback",
+            body=email_body
+        )
+
+        send_message(
+            room_id,
+            "✅ Thank you for your time.\n\nThe interview is now complete."
+        )
+
+        state["stage"] = STAGE_COMPLETED
+        return {"status": "interview_completed"}
 
     return {"status": "ok"}

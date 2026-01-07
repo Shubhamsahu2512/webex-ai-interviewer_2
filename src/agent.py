@@ -162,3 +162,30 @@ Ask the next interview question.
     )
 
     return response.choices[0].message.content.strip()
+
+def generate_feedback(answers: list) -> str:
+    formatted = "\n".join(
+        f"Q: {a['question']}\nA: {a['answer']}" for a in answers
+    )
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an interview evaluator. "
+                    "Provide professional feedback on strengths, weaknesses, "
+                    "communication, and technical depth. "
+                    "DO NOT mention selection or rejection."
+                )
+            },
+            {
+                "role": "user",
+                "content": formatted
+            }
+        ],
+        temperature=0.4
+    )
+
+    return response.choices[0].message.content.strip()
