@@ -271,10 +271,14 @@ Expected CTC: {state['profile'].get(HR_QUESTIONS[2])}
 Notice Period: {state['profile'].get(HR_QUESTIONS[3])}
 """.strip()
 
-        send_feedback_email(
-            subject="AI Interview Feedback",
-            body=email_body
-        )
+        try:
+            send_feedback_email(
+                subject="AI Interview Feedback",
+                body=email_body
+            )
+        except Exception as e:
+            print("EMAIL FAILED:", str(e))
+
 
         send_message(
             room_id,
