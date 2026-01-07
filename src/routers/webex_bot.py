@@ -107,6 +107,9 @@ from fastapi import APIRouter, Request
 
 router = APIRouter()
 
+# -------------------------
+# ENV
+# -------------------------
 WEBEX_TOKEN = os.getenv("WEBEX_BOT_TOKEN")
 WEBEX_BOT_EMAIL = os.getenv("WEBEX_BOT_EMAIL")
 
@@ -118,24 +121,33 @@ headers = {
 }
 
 # -------------------------
-# Interview State (POC)
+# CONSTANTS
 # -------------------------
-ROOM_STATE = {}
-
 STAGE_INTRO = "INTRO"
 STAGE_TECH = "TECH"
 STAGE_HR = "HR"
-STAGE_CLOSING = "CLOSING"
 STAGE_COMPLETED = "COMPLETED"
 
 FIRST_QUESTION = (
     "👋 Hi! Welcome to the AI Interview.\n\n"
     "Let’s begin.\n\n"
-    "First question:\nTell me about yourself."
+    "Tell me about yourself."
 )
 
+HR_QUESTIONS = [
+    "How many years of total professional experience do you have?",
+    "What is your current CTC (annual)?",
+    "What is your expected CTC?",
+    "What is your notice period (in days)?"
+]
+
 # -------------------------
-# Webex Helpers
+# IN-MEMORY STATE (POC)
+# -------------------------
+ROOM_STATE = {}
+
+# -------------------------
+# WEBEX HELPERS
 # -------------------------
 def get_message(message_id: str):
     url = f"{API_BASE}/messages/{message_id}"
@@ -151,7 +163,7 @@ def send_message(room_id: str, text: str):
     return resp.json()
 
 # -------------------------
-# Webhook
+# WEBHOOK
 # -------------------------
 @router.post("/webhook")
 async def webhook_handler(request: Request):
@@ -160,12 +172,20 @@ async def webhook_handler(request: Request):
     message_id = data.get("data", {}).get("id")
     sender = data.get("data", {}).get("personEmail")
 
+    # Ignore bot's own messages
     if sender == WEBEX_BOT_EMAIL:
         return {"status": "ignored_bot"}
 
+    if not message_id:
+        return {"status": "ignored_no_message"}
+
     msg = get_message(message_id)
+
     text = msg.get("text", "").strip()
     room_id = msg.get("roomId")
+
+    if not room_id or not text:
+        return {"status": "ignored_empty"}
 
     # -------------------------
     # INIT INTERVIEW
@@ -175,12 +195,8 @@ async def webhook_handler(request: Request):
             "stage": STAGE_INTRO,
             "last_question": FIRST_QUESTION,
             "answers": [],
-            "profile": {
-                "experience": None,
-                "current_ctc": None,
-                "expected_ctc": None,
-                "notice_period": None
-            }
+            "hr_index": 0,
+            "profile": {}
         }
         send_message(room_id, FIRST_QUESTION)
         return {"status": "interview_started"}
@@ -194,22 +210,46 @@ async def webhook_handler(request: Request):
     })
 
     # -------------------------
-    # MOVE FROM INTRO → TECH
+    # INTRO → TECH
     # -------------------------
     if state["stage"] == STAGE_INTRO:
-        next_question = "Great. Can you explain your current role and key responsibilities?"
+        next_question = "Can you explain your current role and key responsibilities?"
         state["stage"] = STAGE_TECH
         state["last_question"] = next_question
         send_message(room_id, next_question)
         return {"status": "tech_started"}
 
     # -------------------------
-    # TECH (placeholder)
+    # TECH → HR
     # -------------------------
     if state["stage"] == STAGE_TECH:
-        next_question = "Thank you. We will continue with more technical questions shortly."
+        state["stage"] = STAGE_HR
+        state["hr_index"] = 0
+        next_question = HR_QUESTIONS[0]
         state["last_question"] = next_question
         send_message(room_id, next_question)
-        return {"status": "tech_continue"}
+        return {"status": "hr_started"}
+
+    # -------------------------
+    # HR QUESTIONS
+    # -------------------------
+    if state["stage"] == STAGE_HR:
+        idx = state["hr_index"]
+        state["profile"][HR_QUESTIONS[idx]] = text
+        idx += 1
+        state["hr_index"] = idx
+
+        if idx < len(HR_QUESTIONS):
+            next_question = HR_QUESTIONS[idx]
+            state["last_question"] = next_question
+            send_message(room_id, next_question)
+            return {"status": "hr_next"}
+        else:
+            state["stage"] = STAGE_COMPLETED
+            send_message(
+                room_id,
+                "✅ Thank you for your time.\n\nThe interview is now complete."
+            )
+            return {"status": "interview_completed"}
 
     return {"status": "ok"}
