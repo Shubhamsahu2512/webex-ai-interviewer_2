@@ -299,7 +299,7 @@ import os
 import requests
 from fastapi import APIRouter, Request
 from src.agent import generate_feedback
-from src.agents import ask_next_technical_question
+from src.agent import ask_next_technical_question
 
 router = APIRouter()
 
