@@ -106,7 +106,7 @@
 import os
 import requests
 from fastapi import APIRouter, Request
-from src.utils.mailer import send_feedback_email
+#from src.utils.mailer import send_feedback_email
 from src.agent import generate_feedback
 router = APIRouter()
 
@@ -272,10 +272,24 @@ Notice Period: {state['profile'].get(HR_QUESTIONS[3])}
 """.strip()
 
         try:
-            send_feedback_email(
-                subject="AI Interview Feedback",
-                body=email_body
-            )
+            # send_feedback_email(
+            #     subject="AI Interview Feedback",
+            #     body=email_body
+            # )
+            
+            print("\n" + "=" * 60)
+            print("AI INTERVIEW FEEDBACK (POC CONSOLE OUTPUT)")
+            print("=" * 60)
+            print(feedback)
+            print("\nHR DETAILS:")
+            print("-" * 20)
+            print(f"Experience     : {state['profile'].get(HR_QUESTIONS[0])}")
+            print(f"Current CTC    : {state['profile'].get(HR_QUESTIONS[1])}")
+            print(f"Expected CTC   : {state['profile'].get(HR_QUESTIONS[2])}")
+            print(f"Notice Period  : {state['profile'].get(HR_QUESTIONS[3])}")
+            print("=" * 60 + "\n")
+
+
         except Exception as e:
             print("EMAIL FAILED:", str(e))
 
